@@ -475,7 +475,7 @@ def write_logs(peer_id, message):
         f.write(log)
 
 
-class PeerProcess(peer_id):
+class PeerProcess():
     conf = readConfigFile()
     peer_info = getPeerInfo()
     pass
