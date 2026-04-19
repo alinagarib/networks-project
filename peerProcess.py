@@ -575,8 +575,6 @@ def main_neighbor_loop(conn, state: PeerState, neighbor: Neighbor):
                 with state.lock:
                     state.downloadComplete = True
                 write_log(peer_id, f"Peer {peer_id} has downloaded the complete file.")
-                assembleFile(peer_id, state.common)
-                cleanupPieces(peer_id, state.common)
             else:
                 _send_request_if_needed(conn, state, neighbor)
 
@@ -670,16 +668,9 @@ def handle_connection(conn, state: PeerState, expected_id=None):
         else:
             if have_any:
                 conn.sendall(makeBitfieldMessage(my_bf))
-                conn.settimeout(3.0)
-            try:
-                msg_type, payload = recvMessage(conn)
-                if msg_type == message_types['bitfieldType']:
-                    neighbor_bitfield = bitfieldToBoolList(payload, num_pieces)
-            except socket.timeout:
-                pass
-            finally:
-                conn.settimeout(None)
-                
+            
+            
+
         neighbor = Neighbor(
             neighborID=n_id,
             interested=False,
@@ -848,6 +839,8 @@ def run_peer(peer: Peer, common: Common, all_peers: list):
             pass
     print(f"[Peer {peer.id}] All peers have the complete file. "
           f"Process terminating.")
+    if not peer.hasFile:
+        assembleFile(peer.id, common)
     cleanupPieces(peer.id, common)
 
 
