@@ -575,7 +575,6 @@ def main_neighbor_loop(conn, state: PeerState, neighbor: Neighbor):
                 with state.lock:
                     state.downloadComplete = True
                 write_log(peer_id, f"Peer {peer_id} has downloaded the complete file.")
-                assembleFile(peer_id, state.common)
             else:
                 _send_request_if_needed(conn, state, neighbor)
 
@@ -840,6 +839,9 @@ def run_peer(peer: Peer, common: Common, all_peers: list):
             pass
     print(f"[Peer {peer.id}] All peers have the complete file. "
           f"Process terminating.")
+    if not peer.hasFile:
+        assembleFile(peer.id, common)
+    cleanupPieces(peer.id, common)
 
 
 
