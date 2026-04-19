@@ -521,12 +521,15 @@ def main_neighbor_loop(conn, state: PeerState, neighbor: Neighbor):
                     neighbor.interested = False
 
         elif msg_type == message_types['bitfieldType']:
+            write_log(peer_id, f"Peer {peer_id} received the 'bitfield' message from {n_id}.")
+            
             with state.lock:
                 neighbor.bitfield = bitfieldToBoolList(payload, state.common.NumberOfPieces)
                 neighbor.hasFullFile = all(neighbor.bitfield)
                 if neighbor.hasFullFile:
                     state.completedPeers.add(n_id)
                 needed = state.piecesNeeded(neighbor.bitfield)
+                
             if needed:
                 conn.sendall(makeInterestedMessage())
                 with state.lock:
@@ -541,6 +544,7 @@ def main_neighbor_loop(conn, state: PeerState, neighbor: Neighbor):
                 continue
             piece_index = struct.unpack(">I", payload[:4])[0]
             ready = state.isReady()
+            write_log(peer_id, f"Peer {peer_id} received the 'request' message from {n_id} for piece {piece_index}.")
             with state.lock:
                 we_have = hasPiece(state.myBitfield, piece_index)
                 not_choked = not neighbor.choked 
