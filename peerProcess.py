@@ -292,6 +292,7 @@ def assembleFile(peer_id, common):
         for i in range(common.NumberOfPieces):
             out_f.write(loadPiece(peer_id, i))
     print(f"[Peer {peer_id}] Assembled complete file: {out_path}")
+    write_log(peer_id, f"[Peer {peer_id}] Assembled complete file: {out_path}")
 
 def cleanupPieces(peer_id, common):
     for i in range(common.NumberOfPieces):
@@ -301,7 +302,7 @@ def cleanupPieces(peer_id, common):
         except FileNotFoundError:
             pass
     print(f"[Peer {peer_id}] Cleaned up {common.NumberOfPieces} piece files.")
-
+    write_log(peer_id, f"[Peer {peer_id}] Cleaned up {common.NumberOfPieces} piece files.")
 
 def splitFileIntoPieces(peer_id, common):
     src_path = os.path.join(f'peer_{peer_id}', common.FileName)
@@ -317,6 +318,7 @@ def splitFileIntoPieces(peer_id, common):
             if not os.path.exists(piece_path):
                 savePiece(peer_id, i, data)
     print(f"[Peer {peer_id}] All {common.NumberOfPieces} pieces ready in peer_{peer_id}/")
+    write_log(peer_id, f"[Peer {peer_id}] All {common.NumberOfPieces} pieces ready in peer_{peer_id}/")
 
 
 class PeerState:
@@ -685,6 +687,7 @@ def handle_connection(conn, state: PeerState, expected_id=None):
         with state.lock:
             if n_id in state.neighbors:
                 print(f"[Peer {peer_id}] Duplicate connection to {n_id}, dropping.")
+                write_log(peer_id, f"[Peer {peer_id}] Duplicate connection to {n_id}, dropping.")
                 conn.close()
                 return
             state.neighbors[n_id] = neighbor
@@ -717,6 +720,7 @@ def accept_loop(server_sock: socket.socket, state: PeerState):
             server_sock.settimeout(5.0)
             conn, addr = server_sock.accept()
             print(f"[Peer {peer_id}] Accepted incoming connection from {addr}")
+            write_log(peer_id, f"[Peer {peer_id}] Accepted incoming connection from {addr}")
             threading.Thread(
                 target=handle_connection,
                 args=(conn, state),  
@@ -730,6 +734,7 @@ def accept_loop(server_sock: socket.socket, state: PeerState):
             write_log(peer_id, f"Peer {peer_id} accept error: {e}")
             break
     print(f"[Peer {peer_id}] Accept loop exiting.")
+    write_log(peer_id, f"[Peer {peer_id}] Accept loop exiting.")
 
 
 
@@ -754,6 +759,8 @@ def connect_to_earlier_peers(state: PeerState, all_peers: list):
                 conn.close()
                 print(f"[Peer {peer_id}] Peer {p.id} not ready, "
                       f"retrying ({attempt + 1}/10)…")
+                write_log(peer_id, f"[Peer {peer_id}] Peer {p.id} not ready, "
+                          f"retrying ({attempt + 1}/10)…")
                 time.sleep(1)
             except Exception as e:
                 conn.close()
@@ -774,18 +781,25 @@ def run_peer(peer: Peer, common: Common, all_peers: list):
             splitFileIntoPieces(peer.id, common)
             print(f"[Peer {peer.id}] Split file into "
                   f"{common.NumberOfPieces} pieces.")
+            write_log(peer.id, f"[Peer {peer.id}] Split file into "
+                      f"{common.NumberOfPieces} pieces.")
         except FileNotFoundError:
             print(f"[Peer {peer.id}] WARNING: source file not found in "
                   f"peer_{peer.id}/ — make sure it is placed there before "
                   f"starting this peer.")
+            write_log(peer.id, f"[Peer {peer.id}] WARNING: source file not found in "
+                      f"peer_{peer.id}/ — make sure it is placed there before "
+                      f"starting this peer.")
         except Exception as e:
             print(f"[Peer {peer.id}] WARNING: could not split file: {e}")
+            write_log(peer.id, f"[Peer {peer.id}] WARNING: could not split file: {e}")
 
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind((peer.hostname, peer.port))
     server_sock.listen(20)
     print(f"[Peer {peer.id}] Listening on {peer.hostname}:{peer.port}")
+    write_log(peer.id, f"[Peer {peer.id}] Listening on {peer.hostname}:{peer.port}")
 
     accept_thread = threading.Thread(
         target=accept_loop,
@@ -811,6 +825,8 @@ def run_peer(peer: Peer, common: Common, all_peers: list):
 
     print(f"[Peer {peer.id}] Running — waiting for all "
           f"{state.expectedNeighborCount} peers to connect…")
+    write_log(peer.id, f"[Peer {peer.id}] Running — waiting for all "
+              f"{state.expectedNeighborCount} peers to connect…")
     
     while not state.isReady():
         time.sleep(0.1)
@@ -828,6 +844,8 @@ def run_peer(peer: Peer, common: Common, all_peers: list):
         if connected < expected:
             print(f"[Peer {peer.id}] Connected to {connected}/{expected} peers, "
                   f"waiting for more…")
+            write_log(peer.id, f"[Peer {peer.id}] Connected to {connected}/{expected} peers, "
+                      f"waiting for more…")
 
     server_sock.close()
     with state.lock:
@@ -839,6 +857,8 @@ def run_peer(peer: Peer, common: Common, all_peers: list):
             pass
     print(f"[Peer {peer.id}] All peers have the complete file. "
           f"Process terminating.")
+    write_log(peer.id, f"[Peer {peer.id}] All peers have the complete file. "
+              f"Process terminating.")
     if not peer.hasFile:
         assembleFile(peer.id, common)
     cleanupPieces(peer.id, common)
@@ -858,6 +878,7 @@ if __name__ == "__main__":
     my_peer = next((p for p in all_peers if p.id == my_peer_id), None)
     if my_peer is None:
         print(f"Peer ID {my_peer_id} not found in PeerInfo.cfg")
+        write_log(my_peer_id, f"Peer ID {my_peer_id} not found in PeerInfo.cfg")
         sys.exit(1)
 
     try:
